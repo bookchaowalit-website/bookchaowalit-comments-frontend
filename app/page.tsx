@@ -1,197 +1,58 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-
-function Shell({
-  title,
-  subtitle,
-  badge = "Portfolio demo · local-only",
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  badge?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-black dark:text-zinc-100">
-      <div className="mx-auto max-w-6xl px-4 py-10">
-        <header className="mb-8">
-          <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">{badge}</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">{title}</h1>
-          <p className="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">{subtitle}</p>
-        </header>
-        {children}
-        <footer className="mt-10 border-t border-zinc-200 pt-4 text-xs text-zinc-500 dark:border-zinc-800">
-          Honest demo: no multi-tenant backend. State (if any) stays in this browser.
-        </footer>
-      </div>
-    </div>
-  );
+import { useEffect, useMemo, useState } from "react";
+type IconName = "archive" | "check" | "alert" | "plus" | "search" | "trash";
+function Icon({ name, size = 15 }: { name: IconName; size?: number }) {
+  const paths: Record<IconName, string> = {
+    archive: "M4 4h16v16H4z M8 8h8 M8 12h8",
+    check: "m5 12 4 4L19 6",
+    alert: "M12 8v4 M12 16h.01 M5 20h14l-7-16Z",
+    plus: "M12 5v14 M5 12h14",
+    search: "m21 21-4.3-4.3 M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z",
+    trash: "M4 7h16 M10 11v6 M14 11v6 M6 7l1 13h10l1-13 M9 7V4h6v3",
+  };
+  return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={paths[name]} /></svg>;
 }
 
-function Button({
-  children,
-  onClick,
-  variant = "primary",
-  disabled,
-  type = "button",
-  className = "",
-}: {
-  children: ReactNode;
-  onClick?: () => void;
-  variant?: "primary" | "secondary" | "ghost" | "danger";
-  disabled?: boolean;
-  type?: "button" | "submit";
-  className?: string;
-}) {
-  const base =
-    "inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition disabled:opacity-50 " +
-    className;
-  const styles =
-    variant === "primary"
-      ? "bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900"
-      : variant === "secondary"
-        ? "bg-white text-zinc-900 ring-1 ring-zinc-200 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700"
-        : variant === "danger"
-          ? "bg-red-600 text-white hover:bg-red-500"
-          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900";
-  return (
-    <button type={type} disabled={disabled} onClick={onClick} className={`${base} ${styles}`}>
-      {children}
-    </button>
-  );
-}
+type Status = "Pending" | "Approved" | "Spam";
+type Item = { id: string; title: string; body: string; status: Status; createdAt: number };
+const seed: Item[] = [
+  { id: "c-01", title: "alice", body: "Love this demo!", status: "Approved", createdAt: 1710000000000 },
+  { id: "c-02", title: "bob", body: "spam link", status: "Spam", createdAt: 1710086400000 },
+];
+const filters: Array<"All" | Status> = ["All", "Pending", "Approved", "Spam"];
 
-const inputClass =
-  "w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm outline-none ring-zinc-400 focus:ring-2 dark:border-zinc-700 dark:bg-zinc-950";
-
-function useLocalStorage<T>(key: string, initial: T) {
-  const [value, setValue] = useState<T>(initial);
+function useComments() {
+  const [items, setItems] = useState<Item[]>(seed);
   const [ready, setReady] = useState(false);
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw != null) setValue(JSON.parse(raw) as T);
-    } catch {
-      /* ignore */
-    }
-    setReady(true);
-  }, [key]);
-  useEffect(() => {
-    if (!ready) return;
-    localStorage.setItem(key, JSON.stringify(value));
-  }, [key, value, ready]);
-  return [value, setValue] as const;
+  useEffect(() => { try { const saved = localStorage.getItem("comments-v1"); if (saved) setItems(JSON.parse(saved) as Item[]); } catch { /* keep seed */ } setReady(true); }, []);
+  useEffect(() => { if (ready) localStorage.setItem("comments-v1", JSON.stringify(items)); }, [items, ready]);
+  return [items, setItems] as const;
 }
-
-function uid() {
-  return crypto.randomUUID();
-}
-
-async function copyText(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-
-type Item = { id: string; title: string; body: string; status: string; createdAt: number };
-
-const SEED: Item[] = [{"title": "alice", "body": "Love this demo!", "status": "Approved"}, {"title": "bob", "body": "spam link", "status": "Spam"}].map((x: any, i: number) => ({
-  id: String(x.id ?? i + 1),
-  title: x.title,
-  body: x.body,
-  status: x.status,
-  createdAt: x.createdAt ?? Date.now() - i * 86400000,
-}));
-
-const FIELDS = [{"key": "title", "label": "Title", "type": "text"}, {"key": "body", "label": "Details", "type": "textarea"}, {"key": "status", "label": "Status", "type": "select", "options": ["Pending", "Approved", "Spam"]}] as { key: "title" | "body" | "status"; label: string; type: string; options?: string[] }[];
 
 export default function Home() {
-  const [items, setItems] = useLocalStorage<Item[]>("comments-v1", SEED);
+  const [items, setItems] = useComments();
   const [query, setQuery] = useState("");
-  const [draft, setDraft] = useState<Record<string, string>>(() =>
-    Object.fromEntries(FIELDS.map((f) => [f.key, f.options?.[0] ?? ""]))
-  );
-
-  const filtered = items.filter((it) =>
-    (it.title + it.body + it.status).toLowerCase().includes(query.toLowerCase())
-  );
-
-  const add = () => {
-    if (!String(draft.title || "").trim()) return;
-    setItems((prev) => [
-      {
-        id: uid(),
-        title: draft.title || "",
-        body: draft.body || "",
-        status: draft.status || "",
-        createdAt: Date.now(),
-      },
-      ...prev,
-    ]);
-    setDraft(Object.fromEntries(FIELDS.map((f) => [f.key, f.options?.[0] ?? ""])));
-  };
+  const [filter, setFilter] = useState<(typeof filters)[number]>("All");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [status, setStatus] = useState<Status>("Pending");
+  const filtered = useMemo(() => items.filter((item) => (filter === "All" || item.status === filter) && `${item.title} ${item.body}`.toLowerCase().includes(query.toLowerCase())), [filter, items, query]);
+  const counts = useMemo(() => ({ All: items.length, Pending: items.filter((item) => item.status === "Pending").length, Approved: items.filter((item) => item.status === "Approved").length, Spam: items.filter((item) => item.status === "Spam").length }), [items]);
+  const addComment = () => { if (!title.trim()) return; setItems((current) => [{ id: `c-${Date.now()}`, title: title.trim(), body: body.trim() || "No note added.", status, createdAt: Date.now() }, ...current]); setTitle(""); setBody(""); setStatus("Pending"); };
+  const stamp = (value: Status) => value === "Approved" ? <Icon name="check" size={13} /> : value === "Spam" ? <Icon name="alert" size={13} /> : <Icon name="archive" size={13} />;
 
   return (
-    <Shell title="Comments" subtitle="Moderate demo comments locally.">
-      <div className="mb-4 flex flex-wrap gap-2">
-        <input className={`${inputClass} max-w-sm`} placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
-        <span className="self-center text-sm text-zinc-500">{filtered.length} items</span>
+    <main className="comments-shell">
+      <header className="comments-topbar"><a className="comments-brand" href="/"><span>CD</span><strong>COMMENTS / REVIEW DESK</strong></a><span className="comments-local">LOCAL ONLY / EDITORIAL PASS</span></header>
+      <section className="comments-intro"><div><p className="comments-kicker">MODERATION WORKSPACE / 01</p><h1>Clear the queue<br /><i>without losing the sentence.</i></h1></div><p className="comments-intro-copy">A small local desk for reading, marking, and removing demo comments. Every action stays in this browser.</p></section>
+      <div className="comments-workspace">
+        <aside className="comments-rail"><div className="comments-rail-label">VIEW QUEUE</div>{filters.map((item) => <button key={item} className={filter === item ? "is-active" : ""} onClick={() => setFilter(item)} type="button"><span>{item}</span><b>{counts[item]}</b></button>)}<div className="comments-rail-note"><span>HONEST STATUS</span><p>This is a portfolio demo, not a connected comment system.</p></div></aside>
+        <section className="comments-inbox" aria-labelledby="inbox-heading"><div className="comments-section-head"><div><span className="comments-section-index">A</span><h2 id="inbox-heading">Review tape</h2></div><label className="comments-search"><Icon name="search" size={15} /><span className="sr-only">Search comments</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a name or sentence" /></label></div><div className="comments-rule" />
+          <ul className="comments-list">{filtered.map((item) => <li className="comment-row" key={item.id}><div className={`comment-stamp stamp-${item.status.toLowerCase()}`}>{stamp(item.status)}<span>{item.status}</span></div><div className="comment-copy"><div className="comment-meta"><strong>{item.title}</strong><time dateTime={new Date(item.createdAt).toISOString()}>{new Date(item.createdAt).toLocaleDateString("en-GB")}</time></div><p>{item.body}</p></div><button className="comment-delete" type="button" onClick={() => setItems((current) => current.filter((comment) => comment.id !== item.id))} aria-label={`Delete comment by ${item.title}`}><Icon name="trash" size={15} /></button></li>)}{filtered.length === 0 ? <li className="comments-empty">No comments match this view.</li> : null}</ul></section>
+        <aside className="comments-compose"><div className="comments-section-head"><div><span className="comments-section-index">B</span><h2>New note</h2></div><Icon name="plus" size={17} /></div><p className="comments-compose-copy">Add a local comment to test the moderation flow.</p><label><span>AUTHOR / TITLE</span><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. mia" /></label><label><span>THE SENTENCE</span><textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder="Write the comment..." /></label><label><span>MARK AS</span><select value={status} onChange={(event) => setStatus(event.target.value as Status)}><option>Pending</option><option>Approved</option><option>Spam</option></select></label><button className="comments-add" type="button" onClick={addComment}>Add to tape <Icon name="plus" size={15} /></button></aside>
       </div>
-      <div className="mb-6 grid gap-2 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950 md:grid-cols-2">
-        {FIELDS.map((f) => (
-          <label key={f.key} className="block space-y-1">
-            <span className="text-xs font-medium text-zinc-500">{f.label}</span>
-            {f.type === "textarea" ? (
-              <textarea
-                className={`${inputClass} min-h-[72px]`}
-                value={draft[f.key] || ""}
-                onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
-              />
-            ) : f.type === "select" ? (
-              <select
-                className={inputClass}
-                value={draft[f.key] || ""}
-                onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
-              >
-                {(f.options || []).map((o) => (
-                  <option key={o}>{o}</option>
-                ))}
-              </select>
-            ) : (
-              <input
-                className={inputClass}
-                value={draft[f.key] || ""}
-                onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
-              />
-            )}
-          </label>
-        ))}
-        <div className="md:col-span-2">
-          <Button onClick={add}>Add</Button>
-        </div>
-      </div>
-      <ul className="space-y-2">
-        {filtered.map((it) => (
-          <li key={it.id} className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <div className="font-medium">{it.title}</div>
-                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{it.body}</p>
-                <span className="mt-2 inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs dark:bg-zinc-900">{it.status}</span>
-              </div>
-              <Button variant="ghost" onClick={() => setItems((prev) => prev.filter((x) => x.id !== it.id))}>
-                Delete
-              </Button>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </Shell>
+      <footer className="comments-footer"><span>COMMENTS / LOCAL STORAGE</span><span>NO SERVER CLAIMS / NO HIDDEN SYNC</span></footer>
+    </main>
   );
 }
